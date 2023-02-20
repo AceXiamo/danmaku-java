@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://gz-cynosdbmysql-grp-bs36fmz7.sql.tencentcdb.com:20396/bili_live?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&allowMultiQueries=true
+    username: root
+    password: xM147526.
+    hikari:
+      connectionTimeout: 300000
+      idleTimeout: 120000
+      leakDetectionThreshold: 300000
+      maximumPoolSize: 10
+      minimumIdle: 2
+    min-evictable-idle-time-millis: 1800000
+    test-while-idle: true
+    time-between-eviction-runs-millis: 30000
