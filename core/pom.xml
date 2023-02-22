@@ -39,7 +39,11 @@
             <version>0.1.2</version>
         </dependency>
 
-
+        <dependency>
+            <groupId>com.danmaku</groupId>
+            <artifactId>service</artifactId>
+            <version>1.0</version>
+        </dependency>
     </dependencies>
 
 </project>
