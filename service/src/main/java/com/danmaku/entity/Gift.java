@@ -36,13 +36,13 @@ public class Gift {
     private String giftName;
 
     /**
-     * 礼物价值
+     * 礼物金额（仅付费礼物
      */
-    @TableField("gift_gold")
-    private Integer giftGold;
+    @TableField("discount_price")
+    private Integer discountPrice;
 
     /**
-     * 礼物价值(?
+     * 礼物金额（包含免费礼物
      */
     @TableField("gift_price")
     private Integer giftPrice;

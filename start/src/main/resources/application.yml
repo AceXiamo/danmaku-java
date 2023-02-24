@@ -5,11 +5,30 @@ spring:
     username: root
     password: xM147526.
     hikari:
-      connectionTimeout: 300000
-      idleTimeout: 120000
       leakDetectionThreshold: 300000
-      maximumPoolSize: 10
-      minimumIdle: 2
+      # 初始连接数
+      initialSize: 10
+      # 最小连接池数量
+      minIdle: 20
+      # 最大连接池数量
+      maxActive: 200
+      # 配置获取连接等待超时的时间
+      maxWait: 60000
+      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+      timeBetweenEvictionRunsMillis: 60000
+      # 配置一个连接在池中最小生存的时间，单位是毫秒
+      minEvictableIdleTimeMillis: 300000
+      # 配置一个连接在池中最大生存的时间，单位是毫秒
+      maxEvictableIdleTimeMillis: 900000
+      # 配置检测连接是否有效
+      validationQuery: SELECT 1
+      # 当连接池中的连接处于空闲状态时，连接池会定期检查连接是否有效。如果设置为true，连接池会在空闲时检查连接是否可用，以避免使用无效的连接。
+      testWhileIdle: true
+      # 当从连接池中获取连接时，连接池会检查连接是否有效。如果设置为true，连接池会在获取连接时检查连接是否可用，以确保不会返回无效的连接。
+      testOnBorrow: true
+      # 当归还连接到连接池时，连接池会检查连接是否有效。如果设置为true，连接池会在归还连接时检查连接是否可用，以确保连接池中只包含有效的连接。
+      testOnReturn: false
+      poolPreparedStatements: true
     min-evictable-idle-time-millis: 1800000
     test-while-idle: true
-    time-between-eviction-runs-millis: 30000
+    time-between-eviction-runs-millis: 60000

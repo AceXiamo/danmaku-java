@@ -18,12 +18,19 @@
     </properties>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.java-websocket/Java-WebSocket -->
+<!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.java-websocket/Java-WebSocket &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>org.java-websocket</groupId>-->
+<!--            <artifactId>Java-WebSocket</artifactId>-->
+<!--            <version>1.5.2</version>-->
+<!--        </dependency>-->
+        <!-- https://mvnrepository.com/artifact/org.eclipse.jetty.websocket/websocket-client -->
         <dependency>
-            <groupId>org.java-websocket</groupId>
-            <artifactId>Java-WebSocket</artifactId>
-            <version>1.5.3</version>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>websocket-client</artifactId>
+            <version>9.4.48.v20220622</version>
         </dependency>
+
 
         <!-- https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 -->
         <dependency>

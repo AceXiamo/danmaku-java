@@ -119,7 +119,13 @@ public class BiliTool {
 
     public static JSONObject extractJsonObject(String jsonString) {
         if (jsonString.startsWith("{") && jsonString.endsWith("}")) {
-            return JSON.parseObject(jsonString);
+            // 这里可能包裹两层打括号，挺离谱的
+            try {
+                return JSON.parseObject(jsonString);
+            }catch (Exception e) {
+                jsonString = jsonString.substring(1, jsonString.length() - 1);
+                return JSON.parseObject(jsonString);
+            }
         } else {
             return null;
         }

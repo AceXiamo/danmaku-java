@@ -26,8 +26,22 @@ public class WsController {
      */
     @GetMapping("add")
     public Object add(@RequestParam("roomId") String roomId) {
-        SpringUtil.getBean(LiveDanmu.class).addListen(roomId);
-        return 233;
+        try {
+            SpringUtil.getBean(LiveDanmu.class).addListen(roomId);
+            return "complete";
+        } catch (Exception e) {
+            return e.getMessage();
+        }
+    }
+
+    /**
+     * List object.
+     *
+     * @return the object
+     */
+    @GetMapping("list")
+    public Object list() {
+        return SpringUtil.getBean(LiveDanmu.class).listLive();
     }
 
 }

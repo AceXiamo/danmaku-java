@@ -1,5 +1,8 @@
 package com.danmaku.services;
 
+import cn.hutool.http.Header;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
@@ -52,9 +55,11 @@ public class BiliRequest {
      * @return the user info
      */
     public static JSONObject getUserInfo(String uid) {
+        String url = "https://www.bilibili.com";
+        HttpResponse resp = HttpRequest.get(url).execute();
         Map<String, Object> params = new HashMap<>();
         params.put("mid", uid);
-        var res = HttpUtil.get(Bilibili.GET_USER_INFO, params);
+        var res = HttpRequest.get(Bilibili.GET_USER_INFO).header(Header.COOKIE, String.valueOf(resp.getCookie("buvid3"))).form(params).execute().body();
         return JSON.parseObject(res.getBytes(StandardCharsets.UTF_8));
     }
 
