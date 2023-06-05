@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.danmaku.entity.InitLive;
 import com.danmaku.service.IInitLiveService;
+import com.danmaku.services.BiliRequest;
 import com.danmaku.services.LiveDanmu;
+import com.danmaku.tools.WbiTool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -41,8 +43,13 @@ public class ApplicationInit implements CommandLineRunner {
         log.info("======================================================");
         log.info("开始加载已保存直播间 at {}", DateTime.now().toString("yyyy-MM-dd HH:mm:ss"));
         log.info("======================================================");
+        BiliRequest.loadBuvid3();
+        log.info("buvid3 - {}", BiliRequest.buvid3);
+        WbiTool.loadWbi();
+
         count = service.count();
         timer = new Timer();
+
         TimerTask task = new TimerTask() {
             @Override
             public void run() {

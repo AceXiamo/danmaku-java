@@ -55,7 +55,7 @@ public class Interact {
      * 投喂用户uid
      */
     @TableField("uid")
-    private Integer uid;
+    private String uid;
 
     /**
      * 用户昵称

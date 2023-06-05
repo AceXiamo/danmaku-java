@@ -14,14 +14,17 @@ import com.danmaku.services.BiliRequest;
 import com.danmaku.tools.BiliTool;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.handshake.ServerHandshake;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketAdapter;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
+import org.eclipse.jetty.websocket.client.WebSocketClient;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 
 /**
@@ -51,10 +54,23 @@ public class LiveRoomListen {
      * The User info.
      */
     private JSONObject userInfo;
+
     /**
-     * The Client.
+     * The Wls.
      */
-    private WebSocketClient client;
+    private WsListenService wls;
+    /**
+     * The Ws client.
+     */
+    private WebSocketClient wsClient;
+    /**
+     * The Request.
+     */
+    private ClientUpgradeRequest request;
+    /**
+     * The Session.
+     */
+    private Session session;
     /**
      * The Timer.
      */
@@ -85,60 +101,30 @@ public class LiveRoomListen {
      */
     public void connect() {
         try {
-            client = new WebSocketClient(new URI(Bilibili.LIVE_DANMU_WS)) {
+            wsClient = new WebSocketClient();
+            wsClient.start();
+            wls = new WsListenService();
+            request = new ClientUpgradeRequest();
+            Future<Session> future = wsClient.connect(wls, new URI(Bilibili.LIVE_DANMU_WS), request);
+            session = future.get();
+            log.info("🟢 [ws连接已建立] - #{} {}", roomId, userInfo.getString("name"));
+            var json = BiliTool.firstData(roomInfo.getString("room_id"));
+            session.getRemote().sendBytes(BiliTool.packet(json.toJSONString(), PacketTypeEnum.VERIFY, sequence));
+            // 心跳包任务
+            timer = new Timer();
+            task = new TimerTask() {
                 @Override
-                public void onOpen(ServerHandshake serverHandshake) {
-                    log.info("🟢 [ws连接已建立] - #{} {}", roomId, userInfo.getString("name"));
-                    var json = BiliTool.firstData(roomInfo.getString("room_id"));
-                    client.send(BiliTool.packet(json.toJSONString(), PacketTypeEnum.VERIFY, sequence));
-
-                    if (!client.isClosed()) {
+                public void run() {
+                    if (wls.isNotConnected()) {
+                        timer.cancel();
+                    } else {
+                        sendHeartbeat();
                     }
-                    // 心跳包任务
-                    timer = new Timer();
-                    task = new TimerTask() {
-                        @Override
-                        public void run() {
-                            if (client.isClosed()) {
-                                timer.cancel();
-                            } else {
-                                sendHeartbeat();
-                            }
-                        }
-                    };
-                    timer.schedule(task, 30 * 1000L, 30 * 1000L);
-                }
-
-                @Override
-                public void onMessage(String s) {
-                }
-
-                @Override
-                public void onMessage(ByteBuffer buffer) {
-                    msgHandle(buffer);
-                }
-
-                @Override
-                public void onClose(int i, String s, boolean b) {
-                    log.error("🔴 [ws连接关闭，执行重连] - {} - {}", roomId, userInfo.getString("name"));
-                    // 执行重连
-                    timer.cancel();
-                    task = null;
-                    timer = null;
-                    sequence = 0;
-                    client = null;
-                    ThreadUtil.sleep(5000);
-                    connect();
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    log.error("ws连接错误 - {}", roomId);
                 }
             };
-            client.connect();
+            timer.schedule(task, 30 * 1000L, 30 * 1000L);
         } catch (Exception e) {
-            log.error(e.getMessage());
+//            log.error(e.getMessage());
         }
     }
 
@@ -170,23 +156,25 @@ public class LiveRoomListen {
                     String jsonString = matcher.group();
                     try {
                         JSONObject jsonObject = BiliTool.extractJsonObject(jsonString);
+                        if (jsonObject == null || jsonObject.size() < 1) continue;
                         var cmd = jsonObject.getString("cmd");
                         if (MessageType.DANMU_MSG.getCode().equals(cmd)) {
                             // 当收到弹幕时接收到此条消息
                             danmuMsg(jsonObject);
-                        } else if (MessageType.INTERACT_WORD.getCode().equals(cmd)) {
-                            // 有用户进入直播间或关注主播时触发
-                            interactWord(jsonObject);
-                        } else if (MessageType.SEND_GIFT.getCode().equals(cmd)) {
-                            // 用户投喂
-                            sendGift(jsonObject);
-                        } else if (MessageType.GUARD_BUY.getCode().equals(cmd)) {
-                            // 上舰
-                            guardBuy(jsonObject);
-                        } else if (MessageType.SUPER_CHAT_MESSAGE.getCode().equals(cmd)) {
-                            // 醒目留言
-                            superChatMessage(jsonObject);
                         }
+//                        else if (MessageType.INTERACT_WORD.getCode().equals(cmd)) {
+//                            // 有用户进入直播间或关注主播时触发
+//                            interactWord(jsonObject);
+//                        } else if (MessageType.SEND_GIFT.getCode().equals(cmd)) {
+//                            // 用户投喂
+//                            sendGift(jsonObject);
+//                        } else if (MessageType.GUARD_BUY.getCode().equals(cmd)) {
+//                            // 上舰
+//                            guardBuy(jsonObject);
+//                        } else if (MessageType.SUPER_CHAT_MESSAGE.getCode().equals(cmd)) {
+//                            // 醒目留言
+//                            superChatMessage(jsonObject);
+//                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -201,8 +189,12 @@ public class LiveRoomListen {
      * Send heartbeat.
      */
     public void sendHeartbeat() {
-        sequence++;
-        client.send(BiliTool.packet(Bilibili.HEARTBEAT_DATA, PacketTypeEnum.HEARTBEAT, sequence));
+        try {
+            sequence++;
+            session.getRemote().sendBytes(BiliTool.packet(Bilibili.HEARTBEAT_DATA, PacketTypeEnum.HEARTBEAT, sequence));
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
     }
 
     /**
@@ -219,7 +211,7 @@ public class LiveRoomListen {
         Danmakus danmakus = new Danmakus();
         danmakus.setRoomId(Integer.valueOf(roomId));
         danmakus.setContent(msg);
-        danmakus.setUid(user.getInteger(0));
+        danmakus.setUid(user.getString(0));
         danmakus.setUname(user.getString(1));
         if (fans != null && fans.size() > 0) {
             danmakus.setFansCardUid(fans.getInteger(fans.size() - 1));
@@ -227,7 +219,8 @@ public class LiveRoomListen {
             danmakus.setFansCardName(fans.getString(1));
             danmakus.setFansCardUname(fans.getString(3));
         }
-        SpringUtil.getBean(IDanmakusService.class).save(danmakus);
+//        SpringUtil.getBean(IDanmakusService.class).save(danmakus);
+        log.info("[{}]{} : {}", danmakus.getUid(), danmakus.getUname(), danmakus.getContent());
     }
 
     /**
@@ -242,13 +235,13 @@ public class LiveRoomListen {
         Interact interact = new Interact();
         interact.setType(data.getInteger("msg_type"));
         interact.setRoomId(Integer.valueOf(roomId));
-        if (fans!=null) {
+        if (fans != null) {
             interact.setFansCardUid(fans.getInteger("target_id"));
             interact.setFansCardLevel(fans.getInteger("medal_level"));
             interact.setFansCardName(fans.getString("medal_name"));
             interact.setFansCardUname(fans.getString("anchor_uname"));
         }
-        interact.setUid(data.getInteger("uid"));
+        interact.setUid(data.getString("uid"));
         interact.setUname(data.getString("uname"));
         SpringUtil.getBean(IInteractService.class).save(interact);
     }
@@ -269,7 +262,7 @@ public class LiveRoomListen {
         gift.setNum(data.getInteger("num"));
         gift.setDiscountPrice(data.getInteger("discount_price"));
         gift.setGiftPrice(data.getInteger("price"));
-        gift.setUid(data.getInteger("uid"));
+        gift.setUid(data.getString("uid"));
         gift.setUname(data.getString("uname"));
         if (fans != null) {
             gift.setFansCardUid(fans.getInteger("target_id"));
@@ -289,7 +282,7 @@ public class LiveRoomListen {
     private void guardBuy(JSONObject jsonObject) {
         var data = jsonObject.getJSONObject("data");
         GuardBuy guardBuy = new GuardBuy();
-        guardBuy.setUid(data.getInteger("uid"));
+        guardBuy.setUid(data.getString("uid"));
         guardBuy.setUname(data.getString("username"));
         guardBuy.setGuardLevel(data.getInteger("guard_level"));
         guardBuy.setNum(data.getInteger("num"));
@@ -311,7 +304,7 @@ public class LiveRoomListen {
         var user = data.getJSONObject("user_info");
         var fans = data.getJSONObject("medal_info");
         SuperChatMessage sc = new SuperChatMessage();
-        sc.setUid(data.getInteger("uid"));
+        sc.setUid(data.getString("uid"));
         sc.setUname(user.getString("uname"));
         sc.setRoomId(Integer.valueOf(roomId));
         if (fans != null) {
@@ -324,5 +317,55 @@ public class LiveRoomListen {
         sc.setTime(data.getInteger("time"));
         sc.setMessage(data.getString("message"));
         SpringUtil.getBean(ISuperChatMessageService.class).save(sc);
+    }
+
+    /**
+     * The type Ws listen service.
+     */
+    public class WsListenService extends WebSocketAdapter {
+
+        /**
+         * Instantiates a new Ws listen service.
+         */
+        public WsListenService() {
+            super();
+        }
+
+        @Override
+        public void onWebSocketText(String message) {
+            System.out.println("Received message: " + message);
+        }
+
+        @Override
+        public void onWebSocketBinary(byte[] payload, int offset, int len) {
+            msgHandle(ByteBuffer.wrap(payload));
+        }
+
+        @Override
+        public void onWebSocketClose(int statusCode, String reason) {
+            try {
+//                log.error("🔴 [ws连接关闭] - {}", roomId);
+//                log.error("🔴 [ws连接关闭，执行重连] - {} - {}", roomId, userInfo.getString("name"));
+//                // 执行重连
+//                timer.cancel();
+//                task = null;
+//                timer = null;
+//                sequence = 0;
+//                wls = null;
+//                wsClient = null;
+//                session = null;
+//                request = null;
+//                ThreadUtil.sleep(5000);
+//                connect();
+            } catch (Exception e) {
+                log.error("connect error");
+            }
+        }
+
+        @Override
+        public void onWebSocketError(Throwable cause) {
+            log.error("ws连接错误 - {}", roomId);
+        }
+
     }
 }

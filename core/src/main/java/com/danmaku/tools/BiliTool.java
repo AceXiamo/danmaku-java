@@ -119,7 +119,7 @@ public class BiliTool {
 
     public static JSONObject extractJsonObject(String jsonString) {
         if (jsonString.startsWith("{") && jsonString.endsWith("}")) {
-            // 这里可能包裹两层打括号，挺离谱的
+            // 这里可能包裹两层大括号，挺离谱的
             try {
                 return JSON.parseObject(jsonString);
             }catch (Exception e) {
